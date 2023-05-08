@@ -149,7 +149,7 @@
 
             animate();
 
-            const ws = new WebSocket("ws://127.0.0.1:8000/ws")
+            const ws = new WebSocket("{{ websocket_url }}")
 
             ws.addEventListener("open", (e) => {
                 setInterval(() => {

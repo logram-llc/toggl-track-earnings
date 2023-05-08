@@ -5,10 +5,11 @@ from os import environ
 from pathlib import Path
 import uvicorn
 from arrow import now
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.websockets import WebSocket, WebSocketDisconnect
+from fastapi.templating import Jinja2Templates
 from toggl_track_earnings.__version__ import __version__
 from toggl_track_earnings.http import HttpClient
 from toggl_track_earnings.toggl_track import TogglTrackClient
@@ -21,7 +22,10 @@ toggl_track_client = TogglTrackClient(api_token=api_token, http_client=http_clie
 
 manager = ConnectionManager()
 last_earnings: str | None = None
+
 app = FastAPI()
+app_port = int(environ.get("TOGGL_TRACK_PORT", 8000))
+templates = Jinja2Templates(directory=Path(__file__).parent / "web")
 
 
 def get_earnings() -> Decimal:
@@ -66,8 +70,10 @@ app.mount("/assets", StaticFiles(directory=Path(__file__).parent / "web" / "asse
 
 
 @app.get("/")
-async def get():
-    return HTMLResponse((Path(__file__).parent / "web" / "index.html").read_text())
+async def get(request: Request, response_class=HTMLResponse):  # noqa
+    return templates.TemplateResponse(
+        "index.html", {"request": request, "websocket_url": f"ws://127.0.0.1:{app_port}/ws"}
+    )
 
 
 @app.websocket("/ws")
@@ -88,7 +94,7 @@ async def ws(websocket: WebSocket) -> None:
 def main() -> None:
     uvicorn.run(
         "toggl_track_earnings.toggl_track_earnings:app",
-        port=int(environ.get("TOGGL_TRACK_PORT", 8000)),
+        port=app_port,
         log_level="info",
         ws="websockets",
         reload=False,
