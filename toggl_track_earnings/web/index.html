@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="/assets/main.css" />
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/",
+                "tween": "https://cdnjs.cloudflare.com/ajax/libs/tween.js/20.0.3/tween.esm.min.js"
+            }
+        }
+        </script>
+</head>
+
+<body>
+    <script type="module" defer>
+        import * as THREE from 'three';
+        import TWEEN from 'tween';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+        let glow = 0.5;
+
+        function main() {
+            let textMesh = null;
+            const scene = new THREE.Scene();
+
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            const fontLoader = new FontLoader();
+
+            // Add an ambient light
+            const ambientLight = new THREE.AmbientLight(0xd4ffde, 0.2);
+            scene.add(ambientLight);
+
+            function zoomCameraToFit(mesh) {
+                const cameraAspectRatio = camera.aspect;
+                const textBoundingBox = new THREE.Box3().setFromObject(mesh);
+
+                const textWidth = textBoundingBox.max.x - textBoundingBox.min.x;
+                const textHeight = textBoundingBox.max.y - textBoundingBox.min.y;
+
+                const textAspectRatio = textWidth / textHeight;
+
+                let distance;
+
+                if (cameraAspectRatio > textAspectRatio) {
+                    // Fit text based on height
+                    distance = (textHeight / 2) / Math.tan(camera.fov / 2 * (Math.PI / 180));
+                } else {
+                    // Fit text based on width
+                    const fovX = 2 * Math.atan(cameraAspectRatio * Math.tan((camera.fov / 2) * (Math.PI / 180))) * (180 / Math.PI);
+                    distance = (textWidth / 2) / Math.tan(fovX / 2 * (Math.PI / 180));
+                }
+
+                // Add some extra distance to avoid clipping
+                distance += 10;
+
+                // Set the camera position to the calculated distance
+                camera.position.z = distance;
+            }
+
+            function updateText(text) {
+                fontLoader.load("/assets/Roboto.json", (font) => {
+                    const textGeometry = new TextGeometry(text, {
+                        font: font,
+                        size: 40,
+                        height: 5,
+                        curveSegments: 12,
+                        bevelEnabled: true,
+                        bevelSize: 2,
+                        bevelOffset: 2,
+                        bevelSegments: 15
+                    });
+
+                    // Center the text
+                    textGeometry.computeBoundingBox();
+                    const box = textGeometry.boundingBox;
+                    const offsetX = -(box.max.x - box.min.x) / 2;
+                    const offsetY = -(box.max.y - box.min.y) / 2;
+                    const offsetZ = -(box.max.z - box.min.z) / 2;
+                    textGeometry.translate(offsetX, offsetY, offsetZ);
+
+                    const addTextMesh = () => {
+                        textMesh = new THREE.Mesh(textGeometry, [
+                            new THREE.MeshPhongMaterial({ emissive: 0xf9d71c, emissiveIntensity: glow }),
+                            new THREE.MeshPhongMaterial({ color: 0xffffff })
+                        ])
+                        textMesh.castShadow = true
+                        textMesh.receiveShadow = true
+                        textMesh.scale.set(0.75, 0.6, 1.0)
+
+                        const scaleInTween = new TWEEN.Tween(textMesh.scale)
+                            .to({ x: 1.0, y: 1.0, z: 1.0 }, 200)
+                            .easing(TWEEN.Easing.Cubic.In)
+                            .onComplete(() => {
+                                zoomCameraToFit(textMesh)
+
+                                new TWEEN.Tween(textMesh.material[0])
+                                    .to({ emissiveIntensity: 0.8 }, 150)
+                                    .repeat(3)
+                                    .yoyo(true)
+                                    .easing(TWEEN.Easing.Cubic.EaseInOut)
+                                    .start();
+                            })
+                            .start()
+
+                        scene.add(textMesh);
+                    }
+
+
+                    if (textMesh) {
+                        const scaleDownTween = new TWEEN.Tween(textMesh.scale)
+                            .to({ x: 0.75, y: 0.6, z: 1.0 }, 200)
+                            .easing(TWEEN.Easing.Cubic.Out)
+                            .onComplete(() => {
+                                scene.remove(textMesh);
+                                textMesh = null
+
+                                addTextMesh()
+                            })
+                            .start()
+                    }
+                    else {
+                        addTextMesh()
+                    }
+                })
+            }
+
+            const animate = () => {
+                requestAnimationFrame(animate);
+
+                TWEEN.update();
+
+                // Render the scene
+                renderer.render(scene, camera);
+            };
+
+            animate();
+
+            const ws = new WebSocket("ws://127.0.0.1:8000/ws")
+
+            ws.addEventListener("open", (e) => {
+                setInterval(() => {
+                    ws.send("ping")
+                }, 10000)
+            })
+            ws.addEventListener("message", (e) => {
+                if (e.data === "pong") {
+                    return
+                }
+
+                const { month } = JSON.parse(e.data)
+
+                const formatter = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                });
+
+                updateText(formatter.format(Number(month)))
+            })
+        }
+
+        main()
+    </script>
+</body>
+
+</html>

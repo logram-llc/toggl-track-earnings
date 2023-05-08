@@ -1,0 +1,95 @@
+name: Python Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  get_default_branch:
+    uses: ./.github/workflows/reusable-get-default-branch.yml
+
+  test:
+    runs-on: ubuntu-22.04
+    needs: get_default_branch
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+
+      - name: Set up Python
+        uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 # v4.3.0
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[testing]
+
+      - name: Run pytest coverage with tox
+        run: |
+          STDOUT=$(tox -e pytest-cov)
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "stdout<<$EOF" >> "$GITHUB_OUTPUT"
+          echo "$STDOUT" >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
+        id: pytest_cov
+        continue-on-error: true
+
+      - name: Add PR comment
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
+        if: always() && github.event.pull_request.base.ref == needs.get_default_branch.outputs.default_branch && github.event_name == 'pull_request'
+        env:
+          PYTEST_COV_OUTPUT: "${{ steps.pytest_cov.outputs.stdout }}"
+          WORKFLOW_RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          retries: 2
+          script: |
+            const fs = require('fs');
+
+            const output = process.env.PYTEST_COV_OUTPUT;
+
+            const commentIdentifier = "Pytest Coverage Results";
+            const body = `#### ${commentIdentifier}
+
+            <details><summary>Output</summary>
+
+            \`\`\`
+            ${output}
+            \`\`\`
+
+            </details>
+
+            *Actor: @${{ github.actor }}, Workflow Run URL: [${{ github.workflow }}](${{ env.WORKFLOW_RUN_URL }})*
+            `;
+
+            const issueComments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            const existingComment = issueComments.data.find(comment => comment.body.includes(commentIdentifier));
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail job on pytest failures
+        if: steps.pytest_cov.outcome != 'success'
+        run: exit 1

@@ -1,0 +1,126 @@
+[project]
+name = "toggl_track_earnings"
+description = ""
+authors = [
+    {name = "Logram LLC", email = "hi@logram.io"}
+]
+readme = {file = "README.md", content-type = "text/markdown"}
+dynamic = [
+    "version"
+]
+requires-python = "~= 3.11"
+license = {file = "LICENSE"}
+dependencies = [
+    'requests==2.30.0',
+    'backoff==2.2.1',
+    'ratelimit==2.2.1',
+    'arrow==1.2.3',
+    'fastapi==0.95.1',
+    'uvicorn==0.22.0',
+    'uvicorn[standard]==0.22.0',
+    'websockets==11.0.2'
+]
+
+
+[project.scripts]
+toggl-track-earnings = "toggl_track_earnings.toggl_track_earnings:main" 
+
+
+[project.optional-dependencies]
+dev = [
+    'toggl_track_earnings[black]',
+    'toggl_track_earnings[ruff]',
+    'toggl_track_earnings[isort]',
+    'toggl_track_earnings[mypy]',
+    'toggl_track_earnings[pytest]'
+]
+black = [
+    'black==23.3.0',
+]
+ruff = [
+    'ruff==0.0.263',
+]
+isort = [
+    'isort==5.10.1',
+]
+mypy = [
+    'mypy==1.2.0',
+    'types-requests==2.30.0'
+]
+pytest = [
+    'pytest==7.3.1',
+    'pytest-cov==4.0.0',
+    'coverage[toml]==7.2.5'
+]
+testing = [
+    "tox==4.5.1"
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "toggl_track_earnings.__version__.__version__"}
+
+[tool.setuptools.package-data]
+toggl_track_earnings = ["**/*.html", "**/*.css", "**/*.json"]
+
+[tool.ruff]
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+# Same as Black.
+line-length = 110
+extend-select = [
+    "I", # Missing required import (auto-fixable)
+    "UP", # Pyupgrade
+    "RUF100", # Unused noqa (auto-fixable)
+]
+extend-ignore = [
+    "RUF100",
+    "I001"
+]
+
+[tool.ruff.mccabe]
+# Unlike Flake8, default to a complexity level of 10.
+max-complexity = 8
+
+[tool.black]
+line-length = 110
+target-version = ['py311']
+
+[tool.mypy]
+strict_equality = true
+disallow_untyped_decorators = false
+warn_unreachable = true
+follow_imports = "skip"
+ignore_missing_imports = true
+
+[tool.isort]
+ensure_newline_before_comments = true
+force_grid_wrap = 0
+include_trailing_comma = true
+known_testing = [
+    "pytest", 
+    "unittest"
+]
+known_typing = "typing"
+line_length = 110
+lines_between_sections = 0
+multi_line_output = 3
+sections = [
+    "FUTURE", 
+    "TYPING", 
+    "TESTING", 
+    "STDLIB", 
+    "THIRDPARTY", 
+    "FIRSTPARTY", 
+    "LOCALFOLDER"
+]
+src_paths = "./toggl_track_earnings/"
+use_parentheses = true
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+markers = [
+    "unit: Unit tests", 
+    "integration: Integration tests"
+]

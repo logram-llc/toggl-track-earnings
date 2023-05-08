@@ -1,0 +1,11 @@
+{
+  "python.linting.mypyEnabled": true,
+  "python.testing.pytestEnabled": true,
+  "isort.check": true,
+  "editor.formatOnSave": true,
+  "python.formatting.provider": "none",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+  "python.linting.enabled": true
+}
