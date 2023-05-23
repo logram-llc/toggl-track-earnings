@@ -11,7 +11,7 @@ dynamic = [
 requires-python = "~= 3.11"
 license = {file = "LICENSE"}
 dependencies = [
-    'requests==2.30.0',
+    'requests==2.31.0',
     'backoff==2.2.1',
     'ratelimit==2.2.1',
     'arrow==1.2.3',
